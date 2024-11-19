@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime Firebase Messages</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        h1 {
+            text-align: center;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            margin: 0;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        #searchInput {
+            padding: 10px;
+            font-size: 16px;
+            width: 300px;
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        #newMessagesBtn {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        #allMessagesBtn {
+            background-color: #3498db;
+            color: white;
+        }
+
+        #searchBtn {
+            background-color: #9b59b6;
+            color: white;
+        }
+
+        #MessagesDiv {
+            margin: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-box {
+            background-color: #eaf1f8;
+            border: 1px solid #d6dbdf;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .message-box h3 {
+            color: #2c3e50;
+        }
+
+        .message-box p {
+            margin: 5px 0;
+            color: #34495e;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Realtime Firebase Messages</h1>
+
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="Enter User ID to search...">
+        <button id="searchBtn">Search Messages</button>
+        <button id="newMessagesBtn">New Messages</button>
+        <button id="allMessagesBtn">All Messages</button>
+    </div>
+
+    <div id="MessagesDiv"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getDatabase, ref, onChildAdded, get, child } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAppJ2VCJB_kUE1LTvs_Txtz1MBhHKC3Ao",
+            authDomain: "my-application-61262.firebaseapp.com",
+            databaseURL: "https://my-application-61262-default-rtdb.firebaseio.com",
+            projectId: "my-application-61262",
+            storageBucket: "my-application-61262.appspot.com",
+            messagingSenderId: "1060834177790",
+            appId: "1:1060834177790:web:1c85f07dd937cef654abaf",
+            measurementId: "G-4BLGQBZMD1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase();
+
+        let MessagesDiv = document.getElementById('MessagesDiv');
+        let newMessages = [];
+        const allMessagesRef = ref(db, 'Messages');
+
+        onChildAdded(allMessagesRef, (snapshot) => {
+            const userId = snapshot.key;
+            const messages = snapshot.val();
+
+            for (let messageKey in messages) {
+                const message = messages[messageKey];
+                newMessages.unshift({
+                    userId: userId,
+                    sender: message.sender,
+                    body: message.body,
+                });
+            }
+            showNewMessages();
+        });
+
+        function showAllMessages() {
+            MessagesDiv.innerHTML = '';
+            get(child(ref(db), 'Messages')).then((snapshot) => {
+                if (snapshot.exists()) {
+                    snapshot.forEach((userMessages) => {
+                        let userId = userMessages.key;
+                        let messages = userMessages.val();
+
+                        let userHeading = document.createElement('h3');
+                        userHeading.innerHTML = `Messages for: ${userId}`;
+                        MessagesDiv.append(userHeading);
+
+                        for (let messageKey in messages) {
+                            let message = messages[messageKey];
+                            createMessageBox(userId, message.sender, message.body);
+                        }
+                    });
+                } else {
+                    MessagesDiv.innerHTML = "No messages available.";
+                }
+            }).catch((error) => {
+                console.error("Error fetching data: ", error);
+            });
+        }
+
+        function showNewMessages() {
+            MessagesDiv.innerHTML = '';
+            if (newMessages.length > 0) {
+                newMessages.forEach((message) => {
+                    createMessageBox(message.userId, message.sender, message.body);
+                });
+            } else {
+                MessagesDiv.innerHTML = "No new messages.";
+            }
+        }
+
+        function searchMessages() {
+            let userId = document.getElementById('searchInput').value.trim();
+            if (!userId) {
+                MessagesDiv.innerHTML = "Please enter a User ID to search.";
+                return;
+            }
+
+            MessagesDiv.innerHTML = '';
+            get(child(ref(db), `Messages/${userId}`)).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let messages = snapshot.val();
+                    let userHeading = document.createElement('h3');
+                    userHeading.innerHTML = `Messages for: ${userId}`;
+                    MessagesDiv.append(userHeading);
+
+                    for (let messageKey in messages) {
+                        let message = messages[messageKey];
+                        createMessageBox(userId, message.sender, message.body);
+                    }
+                } else {
+                    MessagesDiv.innerHTML = `No messages found for User ID: ${userId}`;
+                }
+            }).catch((error) => {
+                console.error("Error fetching data: ", error);
+            });
+        }
+
+        function createMessageBox(userId, sender, body) {
+            let messageBox = document.createElement('div');
+            messageBox.className = 'message-box';
+
+            let userHeading = document.createElement('h3');
+            userHeading.innerHTML = `User ID: ${userId}`;
+
+            let senderPara = document.createElement('p');
+            senderPara.innerHTML = `<strong>Sender:</strong> ${sender}`;
+
+            let bodyPara = document.createElement('p');
+            bodyPara.innerHTML = `<strong>Message:</strong> ${body}`;
+
+            messageBox.append(userHeading, senderPara, bodyPara);
+            MessagesDiv.appendChild(messageBox);
+        }
+
+        document.getElementById('newMessagesBtn').addEventListener('click', showNewMessages);
+        document.getElementById('allMessagesBtn').addEventListener('click', showAllMessages);
+        document.getElementById('searchBtn').addEventListener('click', searchMessages);
+
+        window.addEventListener('load', showAllMessages);
+    </script>
+</body>
+
+</html>
